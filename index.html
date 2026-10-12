@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trò Chơi Phân Loại Amino Acid - Hóa Học 12</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            touch-action: none; /* Prevent default touch actions like scrolling while playing */
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 2px solid transparent;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .glass-card:active {
+            cursor: grabbing;
+        }
+
+        .drop-zone {
+            transition: all 0.3s ease;
+            border: 2px dashed rgba(255,255,255,0.6);
+        }
+        
+        .drop-zone.drag-over {
+            background: rgba(255, 255, 255, 0.5);
+            border-style: solid;
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        /* Category Specific Colors */
+        .zone-khainiem { background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; }
+        .zone-vatli { background: rgba(16, 185, 129, 0.2); border-color: #10b981; }
+        .zone-hoahoc { background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; }
+        .zone-ungdung { background: rgba(139, 92, 246, 0.2); border-color: #8b5cf6; }
+
+        .zone-khainiem.drag-over { background: rgba(59, 130, 246, 0.5); }
+        .zone-vatli.drag-over { background: rgba(16, 185, 129, 0.5); }
+        .zone-hoahoc.drag-over { background: rgba(245, 158, 11, 0.5); }
+        .zone-ungdung.drag-over { background: rgba(139, 92, 246, 0.5); }
+
+        /* Draggable Element Clone */
+        .is-dragging {
+            position: absolute !important;
+            z-index: 1000 !important;
+            pointer-events: none !important; /* Critical for drop target detection */
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.2);
+            opacity: 0.9;
+        }
+
+        .card-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Animations */
+        @keyframes correctDrop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); background-color: #4ade80; color: white; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .anim-correct { animation: correctDrop 0.5s forwards; }
+
+        @keyframes wrongDrop {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-10px); background-color: #f87171; color: white;}
+            40% { transform: translateX(10px); background-color: #f87171; color: white;}
+            60% { transform: translateX(-10px); background-color: #f87171; color: white;}
+            80% { transform: translateX(10px); background-color: #f87171; color: white;}
+            100% { transform: translateX(0); }
+        }
+        .anim-wrong { animation: wrongDrop 0.5s; }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: popIn 0.4s ease-out forwards; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.5); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.7); }
+
+        /* Modal styling */
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+        
+        #card-pool {
+            min-height: 120px;
+        }
+
+        .quiz-option {
+            transition: all 0.2s;
+        }
+        .quiz-option:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .quiz-option.correct {
+            background-color: #10b981 !important;
+            color: white !important;
+            border-color: #059669 !important;
+            transform: scale(1.02);
+        }
+        .quiz-option.wrong {
+            background-color: #ef4444 !important;
+            color: white !important;
+            border-color: #b91c1c !important;
+            animation: wrongDrop 0.4s;
+        }
+        .tab-active {
+            border-bottom: 2px solid #2563eb;
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen w-screen flex flex-col">
+
+    <header class="glass-panel p-4 flex justify-between items-center z-10 text-white rounded-b-xl mx-2 mt-1 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="bg-white/20 p-2 rounded-lg">
+                <i class="fa-solid fa-flask text-2xl text-yellow-300"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-2xl font-bold uppercase tracking-wider drop-shadow-md text-white">Amino Acid Game</h1>
+                <p class="text-xs md:text-sm opacity-90 font-medium">Hóa Học 12 - Kết Nối Tri Thức</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="bg-white/20 px-4 py-2 rounded-full font-bold text-lg shadow-inner">
+                <i class="fa-solid fa-star text-yellow-300 mr-1"></i> <span id="score">0</span>
+            </div>
+            <button id="btn-sound" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 transition flex items-center justify-center">
+                <i class="fa-solid fa-volume-up text-xl"></i>
+            </button>
+            <button id="btn-teacher" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 transition flex items-center justify-center" title="Khu vực giáo viên">
+                <i class="fa-solid fa-gear text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <div id="game-container" class="flex-1 overflow-hidden flex flex-col w-full h-full relative">
+        
+        <!-- VÒNG 1: NỐI CÔNG THỨC -->
+        <main id="round1-container" class="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+            <!-- Drop Zones -->
+            <div class="flex-1 flex flex-wrap gap-4 justify-center items-center content-center w-full h-full overflow-y-auto pb-10 md:pb-0">
+                <!-- Zone Glycine -->
+                <div class="drop-zone w-full sm:w-[45%] lg:w-[30%] min-h-[120px] rounded-2xl p-4 flex flex-col items-center justify-center text-center relative bg-pink-100/30 border-pink-400" data-target="glycine">
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-1">Glycine (Gly)</h2>
+                    <p class="text-white text-sm md:text-base font-bold bg-pink-600/60 px-3 py-1 rounded-full shadow-inner border border-white/30">C<sub>2</sub>H<sub>5</sub>NO<sub>2</sub> - M=75</p>
+                </div>
+                <!-- Zone Alanine -->
+                <div class="drop-zone w-full sm:w-[45%] lg:w-[30%] min-h-[120px] rounded-2xl p-4 flex flex-col items-center justify-center text-center relative bg-blue-100/30 border-blue-400" data-target="alanine">
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-1">Alanine (Ala)</h2>
+                    <p class="text-white text-sm md:text-base font-bold bg-blue-600/60 px-3 py-1 rounded-full shadow-inner border border-white/30">C<sub>3</sub>H<sub>7</sub>NO<sub>2</sub> - M=89</p>
+                </div>
+                <!-- Zone Valine -->
+                <div class="drop-zone w-full sm:w-[45%] lg:w-[30%] min-h-[120px] rounded-2xl p-4 flex flex-col items-center justify-center text-center relative bg-green-100/30 border-green-400" data-target="valine">
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-1">Valine (Val)</h2>
+                    <p class="text-white text-sm md:text-base font-bold bg-green-600/60 px-3 py-1 rounded-full shadow-inner border border-white/30">C<sub>5</sub>H<sub>11</sub>NO<sub>2</sub> - M=117</p>
+                </div>
+                <!-- Zone Lysine -->
+                <div class="drop-zone w-full sm:w-[45%] lg:w-[40%] min-h-[120px] rounded-2xl p-4 flex flex-col items-center justify-center text-center relative bg-purple-100/30 border-purple-400" data-target="lysine">
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-1">Lysine (Lys)</h2>
+                    <p class="text-white text-sm md:text-base font-bold bg-purple-600/60 px-3 py-1 rounded-full shadow-inner border border-white/30">C<sub>6</sub>H<sub>14</sub>N<sub>2</sub>O<sub>2</sub> - M=146</p>
+                </div>
+                <!-- Zone Glutamic -->
+                <div class="drop-zone w-full sm:w-[45%] lg:w-[40%] min-h-[120px] rounded-2xl p-4 flex flex-col items-center justify-center text-center relative bg-orange-100/30 border-orange-400" data-target="glutamic">
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-1">Acid Glutamic (Glu)</h2>
+                    <p class="text-white text-sm md:text-base font-bold bg-orange-600/60 px-3 py-1 rounded-full shadow-inner border border-white/30">C<sub>5</sub>H<sub>9</sub>NO<sub>4</sub> - M=147</p>
+                </div>
+            </div>
+
+            <!-- Card Pool / Deck -->
+            <div class="w-full md:w-1/3 lg:w-1/4 glass-panel rounded-2xl p-4 flex flex-col z-10 max-h-[35vh] md:max-h-full">
+                <h3 class="text-white font-bold text-center mb-2 uppercase tracking-wide border-b border-white/30 pb-2">Vòng 1: Cấu tạo</h3>
+                <div class="mt-1 mb-3 text-center text-white/90 text-xs font-medium">
+                    <i class="fa-solid fa-hand-pointer mr-1"></i> Kéo thẻ cấu tạo vào tên tương ứng
+                </div>
+                <div id="card-pool-r1" class="flex-1 overflow-y-auto flex flex-col gap-3 items-center relative pr-2">
+                    <!-- Cards will be injected here via JS -->
+                </div>
+            </div>
+        </main>
+
+        <!-- VÒNG 2: TÍNH CHẤT & ỨNG DỤNG -->
+        <main id="round2-container" class="hidden flex-1 flex-col md:flex-row gap-4 p-4 overflow-hidden">
+            <!-- Drop Zones -->
+            <div class="flex-1 grid grid-cols-2 grid-rows-2 gap-3 md:gap-6 w-full h-full">
+                <!-- Zone 1: Khái niệm -->
+                <div class="drop-zone zone-khainiem rounded-2xl p-4 flex flex-col items-center justify-center text-center relative" data-category="khainiem">
+                    <div class="absolute top-2 right-2 opacity-30 text-4xl"><i class="fa-solid fa-book-open"></i></div>
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-2">Khái niệm & Cấu tạo</h2>
+                </div>
+                
+                <!-- Zone 2: Tính chất vật lí -->
+                <div class="drop-zone zone-vatli rounded-2xl p-4 flex flex-col items-center justify-center text-center relative" data-category="vatli">
+                    <div class="absolute top-2 right-2 opacity-30 text-4xl"><i class="fa-solid fa-temperature-half"></i></div>
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-2">Tính chất vật lí</h2>
+                </div>
+
+                <!-- Zone 3: Tính chất hóa học -->
+                <div class="drop-zone zone-hoahoc rounded-2xl p-4 flex flex-col items-center justify-center text-center relative" data-category="hoahoc">
+                    <div class="absolute top-2 right-2 opacity-30 text-4xl"><i class="fa-solid fa-flask-vial"></i></div>
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-2">Tính chất hóa học</h2>
+                </div>
+
+                <!-- Zone 4: Ứng dụng -->
+                <div class="drop-zone zone-ungdung rounded-2xl p-4 flex flex-col items-center justify-center text-center relative" data-category="ungdung">
+                    <div class="absolute top-2 right-2 opacity-30 text-4xl"><i class="fa-solid fa-industry"></i></div>
+                    <h2 class="text-xl md:text-2xl font-bold text-white drop-shadow-md mb-2">Ứng dụng</h2>
+                </div>
+            </div>
+
+            <!-- Card Pool / Deck -->
+            <div class="w-full md:w-1/3 lg:w-1/4 glass-panel rounded-2xl p-4 flex flex-col z-10 max-h-[30vh] md:max-h-full">
+                <h3 class="text-white font-bold text-center mb-3 uppercase tracking-wide border-b border-white/30 pb-2">Vòng 2: Tính chất</h3>
+                <div class="mt-1 mb-3 text-center text-white/90 text-xs font-medium">
+                    <i class="fa-solid fa-hand-pointer mr-1"></i> Phân loại các tính chất
+                </div>
+                <div id="card-pool-r2" class="flex-1 overflow-y-auto flex flex-wrap gap-2 justify-center items-start content-start relative">
+                    <!-- Cards -->
+                </div>
+            </div>
+        </main>
+
+        <!-- VÒNG 3: TRẮC NGHIỆM -->
+        <main id="round3-container" class="hidden flex-1 flex-col items-center justify-center p-4 overflow-y-auto">
+            <div class="glass-panel w-full max-w-3xl rounded-3xl p-6 md:p-10 flex flex-col items-center shadow-2xl relative my-auto pop-in">
+                <div class="absolute top-4 left-6 bg-blue-500/90 text-white px-4 py-1 rounded-full font-bold shadow-md text-sm md:text-base">
+                    Câu <span id="current-question-idx">1</span>/<span id="total-questions">10</span>
+                </div>
+                
+                <h2 id="quiz-question-text" class="text-lg md:text-2xl font-bold text-gray-800 text-center mt-10 mb-8 min-h-[80px] flex items-center justify-center">
+                    <!-- Nội dung câu hỏi -->
+                </h2>
+
+                <div id="quiz-options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                    <!-- Các nút đáp án sẽ được tạo bằng JS -->
+                </div>
+
+                <div class="mt-8 text-center text-gray-700 bg-white/40 px-6 py-2 rounded-full font-medium text-sm md:text-base shadow-sm">
+                    <i class="fa-solid fa-circle-info text-blue-600 mr-1"></i> Trả lời đúng <strong>+10đ</strong>, sai <strong>-2đ</strong> và được chọn lại.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Teacher Password Modal -->
+    <div id="modal-pin" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm transform transition-all pop-in">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-lock text-red-500 mr-2"></i> Xác thực giáo viên</h3>
+                <button class="btn-close-modal text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Vui lòng nhập mã PIN để chỉnh sửa nội dung bài học. (Mặc định: 1234)</p>
+            <input type="password" id="pin-input" class="w-full border-2 border-gray-300 rounded-lg px-4 py-2 mb-4 text-center text-2xl tracking-widest focus:border-blue-500 focus:outline-none" placeholder="****" maxlength="4">
+            <button id="btn-verify-pin" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Xác Nhận</button>
+        </div>
+    </div>
+
+    <!-- Teacher Dashboard Modal -->
+    <div id="modal-teacher" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-5xl h-[95vh] flex flex-col transform transition-all pop-in">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-xl md:text-2xl font-bold text-gray-800"><i class="fa-solid fa-chalkboard-user text-blue-600 mr-2"></i> Quản lý nội dung (Teacher Mode)</h3>
+                <button class="btn-close-modal text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex gap-2 md:gap-4 border-b mb-4 overflow-x-auto pb-1">
+                <button id="tab-round1" class="tab-btn tab-active font-bold px-3 py-2 text-gray-600 hover:text-blue-600 transition whitespace-nowrap">Vòng 1 (Công thức)</button>
+                <button id="tab-round2" class="tab-btn font-bold px-3 py-2 text-gray-600 hover:text-blue-600 transition whitespace-nowrap">Vòng 2 (Tính chất)</button>
+                <button id="tab-round3" class="tab-btn font-bold px-3 py-2 text-gray-600 hover:text-blue-600 transition whitespace-nowrap">Vòng 3 (Trắc nghiệm)</button>
+            </div>
+
+            <!-- Tab Content: Round 1 (New) -->
+            <div id="content-round1" class="flex-1 flex flex-col overflow-hidden">
+                <div class="flex-1 overflow-y-auto mb-4 border rounded-lg p-2 bg-gray-50">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-200 sticky top-0 shadow-sm z-10">
+                            <tr>
+                                <th class="p-2 text-sm text-gray-700 w-12">STT</th>
+                                <th class="p-2 text-sm text-gray-700 w-1/2">Công thức cấu tạo</th>
+                                <th class="p-2 text-sm text-gray-700">Mục tiêu (Tên)</th>
+                                <th class="p-2 text-sm text-gray-700 text-center w-16">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-r1-list">
+                            <!-- Items rendered by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-pink-50 p-4 rounded-xl border border-pink-200">
+                    <h4 class="font-bold text-pink-800 mb-2"><i class="fa-solid fa-plus-circle mr-1"></i> Thêm công thức mới</h4>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <input type="text" id="new-r1-text" class="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Nhập CTCT (Dùng <sub>2</sub> cho chỉ số dưới. VD: H<sub>2</sub>N)">
+                        <select id="new-r1-target" class="border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-pink-400 focus:outline-none md:w-48">
+                            <option value="glycine">Glycine</option>
+                            <option value="alanine">Alanine</option>
+                            <option value="valine">Valine</option>
+                            <option value="lysine">Lysine</option>
+                            <option value="glutamic">Acid Glutamic</option>
+                        </select>
+                        <button id="btn-add-r1" class="bg-pink-600 hover:bg-pink-700 text-white font-bold px-6 py-2 rounded-lg transition whitespace-nowrap">Thêm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Round 2 -->
+            <div id="content-round2" class="flex-1 flex-col overflow-hidden hidden">
+                <div class="flex-1 overflow-y-auto mb-4 border rounded-lg p-2 bg-gray-50">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-200 sticky top-0 shadow-sm z-10">
+                            <tr>
+                                <th class="p-2 text-sm text-gray-700 w-12">STT</th>
+                                <th class="p-2 text-sm text-gray-700">Nội dung thẻ</th>
+                                <th class="p-2 text-sm text-gray-700 w-1/3">Phân loại</th>
+                                <th class="p-2 text-sm text-gray-700 text-center w-16">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-items-list">
+                            <!-- Items rendered by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <h4 class="font-bold text-blue-800 mb-2"><i class="fa-solid fa-plus-circle mr-1"></i> Thêm thẻ tính chất</h4>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <input type="text" id="new-card-text" class="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none" placeholder="Nhập nội dung (VD: Có tính lưỡng tính)">
+                        <select id="new-card-category" class="border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none md:w-48">
+                            <option value="khainiem">Khái niệm & Cấu tạo</option>
+                            <option value="vatli">Tính chất vật lí</option>
+                            <option value="hoahoc">Tính chất hóa học</option>
+                            <option value="ungdung">Ứng dụng</option>
+                        </select>
+                        <button id="btn-add-card" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg transition whitespace-nowrap">Thêm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Round 3 -->
+            <div id="content-round3" class="flex-1 flex-col overflow-hidden hidden">
+                <div class="flex-1 overflow-y-auto mb-4 border rounded-lg p-2 bg-gray-50">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-200 sticky top-0 shadow-sm z-10">
+                            <tr>
+                                <th class="p-2 text-sm text-gray-700 w-12">STT</th>
+                                <th class="p-2 text-sm text-gray-700">Câu hỏi & Đáp án đúng</th>
+                                <th class="p-2 text-sm text-gray-700 text-center w-16">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-quiz-list">
+                            <!-- Items rendered by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col gap-3">
+                    <h4 class="font-bold text-indigo-800"><i class="fa-solid fa-plus-circle mr-1"></i> Thêm câu hỏi mới</h4>
+                    <input type="text" id="new-quiz-q" class="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-400 focus:outline-none" placeholder="Nhập câu hỏi...">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <input type="text" id="new-quiz-a" class="border-l-4 border-green-500 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none" placeholder="Đáp án ĐÚNG (Hệ thống tự đảo vị trí)">
+                        <input type="text" id="new-quiz-b" class="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none" placeholder="Đáp án Sai 1">
+                        <input type="text" id="new-quiz-c" class="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none" placeholder="Đáp án Sai 2 (Tuỳ chọn)">
+                        <input type="text" id="new-quiz-d" class="border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 focus:outline-none" placeholder="Đáp án Sai 3 (Tuỳ chọn)">
+                    </div>
+                    <button id="btn-add-quiz" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-lg transition self-end mt-1">Thêm câu hỏi</button>
+                </div>
+            </div>
+
+            <div class="mt-4 flex justify-between items-center">
+                <button id="btn-reset-data" class="text-sm text-red-500 hover:text-red-700 underline"><i class="fa-solid fa-rotate-left"></i> Khôi phục toàn bộ gốc</button>
+                <button class="btn-close-modal bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-6 py-2 rounded-lg transition">Đóng & Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Win Modal R1 -->
+    <div id="modal-win-r1" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md text-center transform transition-all pop-in">
+            <div class="text-6xl text-pink-400 mb-4 animate-bounce"><i class="fa-solid fa-medal"></i></div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Hoàn Thành Vòng 1!</h2>
+            <p class="text-gray-600 mb-6">Bạn đã nắm được công thức của các Amino Acid quan trọng.</p>
+            <button id="btn-next-r2" class="w-full bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold py-4 rounded-xl text-lg shadow-lg transform transition hover:scale-105">
+                <i class="fa-solid fa-forward-step mr-2"></i> Sang Vòng 2: Phân loại Tính chất
+            </button>
+        </div>
+    </div>
+
+    <!-- Win Modal R2 -->
+    <div id="modal-win-r2" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md text-center transform transition-all pop-in">
+            <div class="text-6xl text-blue-400 mb-4 animate-bounce"><i class="fa-solid fa-star"></i></div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Hoàn Thành Vòng 2!</h2>
+            <p class="text-gray-600 mb-6">Kiến thức của bạn rất vững chắc.</p>
+            <button id="btn-next-r3" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 rounded-xl text-lg shadow-lg transform transition hover:scale-105">
+                <i class="fa-solid fa-forward-step mr-2"></i> Sang Vòng 3: Trắc Nghiệm
+            </button>
+        </div>
+    </div>
+
+    <!-- Final Win Modal -->
+    <div id="modal-final-win" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md text-center transform transition-all pop-in">
+            <div class="text-6xl text-yellow-400 mb-4 animate-bounce"><i class="fa-solid fa-trophy"></i></div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Xuất Sắc!</h2>
+            <p class="text-gray-600 mb-6">Bạn đã chinh phục thành công toàn bộ bài học.</p>
+            <div class="bg-green-50 text-green-800 font-bold text-2xl py-3 px-6 rounded-xl inline-block mb-6 shadow-inner border border-green-200">
+                Tổng điểm: <span id="final-score">0</span>
+            </div>
+            <button id="btn-restart" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 rounded-xl text-lg shadow-lg transform transition hover:scale-105">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Chơi Lại Từ Đầu
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Alert -->
+    <div id="modal-alert" class="fixed inset-0 modal-overlay z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm text-center transform transition-all pop-in">
+            <div id="alert-icon" class="text-4xl mb-3"></div>
+            <h3 id="alert-title" class="text-xl font-bold text-gray-800 mb-2">Thông báo</h3>
+            <p id="alert-msg" class="text-gray-600 mb-6"></p>
+            <button id="btn-alert-ok" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg transition">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. GAME DATA & STATE ---
+        const DEFAULT_ITEMS_R1 = [
+            { id: 1, text: "H<sub>2</sub>N-CH<sub>2</sub>-COOH", target: "glycine" },
+            { id: 2, text: "CH<sub>3</sub>-CH(NH<sub>2</sub>)-COOH", target: "alanine" },
+            { id: 3, text: "(CH<sub>3</sub>)<sub>2</sub>CH-CH(NH<sub>2</sub>)-COOH", target: "valine" },
+            { id: 4, text: "H<sub>2</sub>N-[CH<sub>2</sub>]<sub>4</sub>-CH(NH<sub>2</sub>)-COOH", target: "lysine" },
+            { id: 5, text: "HOOC-[CH<sub>2</sub>]<sub>2</sub>-CH(NH<sub>2</sub>)-COOH", target: "glutamic" }
+        ];
+
+        const TARGET_NAMES_R1 = {
+            "glycine": "Glycine", "alanine": "Alanine", "valine": "Valine", "lysine": "Lysine", "glutamic": "Acid Glutamic"
+        };
+
+        const DEFAULT_ITEMS_R2 = [
+            { id: 1, text: "Phân tử chứa đồng thời nhóm -NH2 và -COOH", category: "khainiem", icon: "fa-circle-nodes", color: "text-blue-500" },
+            { id: 2, text: "Là hợp chất hữu cơ tạp chức", category: "khainiem", icon: "fa-layer-group", color: "text-blue-500" },
+            { id: 3, text: "Chất rắn kết tinh ở điều kiện thường", category: "vatli", icon: "fa-cube", color: "text-emerald-500" },
+            { id: 4, text: "Nhiệt độ nóng chảy cao (phân hủy khi nóng chảy)", category: "vatli", icon: "fa-fire", color: "text-emerald-500" },
+            { id: 5, text: "Dễ tan trong nước tạo dung dịch", category: "vatli", icon: "fa-droplet", color: "text-emerald-500" },
+            { id: 6, text: "Tồn tại chủ yếu ở dạng ion lưỡng cực", category: "khainiem", icon: "fa-magnet", color: "text-blue-500" },
+            { id: 7, text: "Có tính lưỡng tính", category: "hoahoc", icon: "fa-scale-balanced", color: "text-amber-500" },
+            { id: 8, text: "Tác dụng với dung dịch NaOH", category: "hoahoc", icon: "fa-vial", color: "text-amber-500" },
+            { id: 9, text: "Tác dụng với dung dịch HCl", category: "hoahoc", icon: "fa-vial", color: "text-amber-500" },
+            { id: 10, text: "Tham gia phản ứng trùng ngưng tạo polipeptit", category: "hoahoc", icon: "fa-link", color: "text-amber-500" },
+            { id: 11, text: "Phản ứng este hóa với ancol (xúc tác khí HCl)", category: "hoahoc", icon: "fa-flask", color: "text-amber-500" },
+            { id: 12, text: "Sản xuất bột ngọt, mì chính", category: "ungdung", icon: "fa-bowl-food", color: "text-violet-500" },
+            { id: 13, text: "Sản xuất tơ nilon-6, nilon-7", category: "ungdung", icon: "fa-shirt", color: "text-violet-500" },
+            { id: 14, text: "Thuốc bổ thần kinh (Axit glutamic)", category: "ungdung", icon: "fa-brain", color: "text-violet-500" },
+            { id: 15, text: "Thuốc bổ gan (Methionin)", category: "ungdung", icon: "fa-pills", color: "text-violet-500" }
+        ];
+
+        const DEFAULT_QUIZ_ITEMS = [
+            { id: 1, question: "Amino axit là hợp chất hữu cơ trong phân tử chứa các nhóm chức nào?", options: ["-NH2 và -COOH", "-OH và -COOH", "-NH2 và -CHO", "-OH và -NH2"], answer: 0 },
+            { id: 2, question: "Ở điều kiện thường, các amino axit là những chất gì?", options: ["Chất rắn kết tinh", "Chất lỏng", "Chất khí", "Chất keo"], answer: 0 },
+            { id: 3, question: "Amino axit tồn tại chủ yếu ở dạng nào trong dung dịch?", options: ["Ion lưỡng cực", "Phân tử phân cực", "Ion âm", "Ion dương"], answer: 0 },
+            { id: 4, question: "Dung dịch của amino axit nào sau đây làm quỳ tím chuyển sang màu đỏ (hồng)?", options: ["Axit glutamic", "Alanin", "Glyxin", "Lysin"], answer: 0 },
+            { id: 5, question: "Dung dịch của amino axit nào sau đây làm quỳ tím chuyển sang màu xanh?", options: ["Lysin", "Valin", "Axit glutamic", "Glyxin"], answer: 0 },
+            { id: 6, question: "Tính chất hóa học đặc trưng của amino axit là gì?", options: ["Tính lưỡng tính", "Chỉ có tính bazơ", "Chỉ có tính axit", "Tính oxi hóa mạnh"], answer: 0 },
+            { id: 7, question: "Cho glyxin tác dụng với dung dịch HCl, nhóm chức nào tham gia phản ứng?", options: ["Nhóm -NH2", "Nhóm -COOH", "Cả 2 nhóm", "Gốc hiđrocacbon"], answer: 0 },
+            { id: 8, question: "Bột ngọt (mì chính) được sản xuất từ muối của axit nào?", options: ["Axit glutamic", "Axit axetic", "Axit ađipic", "Axit panmitic"], answer: 0 },
+            { id: 9, question: "Phản ứng este hóa của amino axit với ancol cần sử dụng xúc tác là gì?", options: ["Khí HCl khô", "NaOH", "H2SO4 đặc", "Nhiệt độ cao"], answer: 0 },
+            { id: 10, question: "Các amino axit (như axit ε-aminocaproic) có thể tham gia phản ứng gì để tạo polime?", options: ["Phản ứng trùng ngưng", "Phản ứng trùng hợp", "Phản ứng cộng", "Phản ứng thế"], answer: 0 }
+        ];
+
+        let itemsR1 = [], itemsR2 = [], quizItems = [];
+        let remainingR1 = [], remainingR2 = [];
+        let score = 0;
+        let currentRound = 1; // 1, 2, 3
+        let isSoundEnabled = true;
+        let pinCode = "1234";
+        let currentQuizIndex = 0;
+        let currentQuizList = [];
+
+        const CAT_NAMES = { "khainiem": "Khái niệm", "vatli": "Tính chất vật lí", "hoahoc": "Tính chất hóa học", "ungdung": "Ứng dụng" };
+        const CAT_COLORS = { "khainiem": "text-blue-500", "vatli": "text-emerald-500", "hoahoc": "text-amber-500", "ungdung": "text-violet-500" };
+        const CAT_ICONS = { "khainiem": "fa-bookmark", "vatli": "fa-eye", "hoahoc": "fa-atom", "ungdung": "fa-lightbulb" };
+
+        // --- 2. SOUND SYSTEM (Tone.js) ---
+        let synth, polySynth;
+        async function initAudio() {
+            if (!synth) {
+                await Tone.start();
+                synth = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+                synth.volume.value = -10;
+                polySynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.1, sustain: 0.3, release: 1 } }).toDestination();
+                polySynth.volume.value = -12;
+            }
+        }
+        function playSound(type) {
+            if (!isSoundEnabled) return;
+            initAudio().then(() => {
+                const now = Tone.now();
+                if(type==='pickup') synth.triggerAttackRelease("C5", "32n", now);
+                else if(type==='correct') polySynth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                else if(type==='wrong') {
+                    synth.oscillator.type = "sawtooth"; synth.triggerAttackRelease("D2", "8n", now);
+                    setTimeout(() => { synth.oscillator.type = "sine"; }, 200);
+                } else if(type==='win') {
+                    polySynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "4n", now);
+                    setTimeout(() => polySynth.triggerAttackRelease(["C4", "E4", "G4", "C5", "E5"], "2n"), 300);
+                }
+            });
+        }
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            isSoundEnabled = !isSoundEnabled;
+            document.querySelector('#btn-sound i').className = isSoundEnabled ? 'fa-solid fa-volume-up text-xl' : 'fa-solid fa-volume-xmark text-xl';
+            document.getElementById('btn-sound').classList.toggle('opacity-50', !isSoundEnabled);
+            if(isSoundEnabled) initAudio();
+        });
+
+        // --- 3. CUSTOM ALERTS ---
+        function showAlert(title, message, type = 'info') {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-msg').innerText = message;
+            const icon = document.getElementById('alert-icon');
+            icon.innerHTML = type === 'error' ? '<i class="fa-solid fa-circle-xmark text-red-500"></i>' : (type === 'success' ? '<i class="fa-solid fa-circle-check text-green-500"></i>' : '<i class="fa-solid fa-circle-info text-blue-500"></i>');
+            document.getElementById('modal-alert').classList.remove('hidden');
+        }
+        document.getElementById('btn-alert-ok').addEventListener('click', () => document.getElementById('modal-alert').classList.add('hidden'));
+
+        // --- 4. GAME FLOW LOGIC ---
+        function loadData() {
+            try { itemsR1 = JSON.parse(localStorage.getItem('aminoAcidGameR1')) || [...DEFAULT_ITEMS_R1]; } catch(e) { itemsR1 = [...DEFAULT_ITEMS_R1]; }
+            try { itemsR2 = JSON.parse(localStorage.getItem('aminoAcidGameR2')) || [...DEFAULT_ITEMS_R2]; } catch(e) { itemsR2 = [...DEFAULT_ITEMS_R2]; }
+            try { quizItems = JSON.parse(localStorage.getItem('aminoAcidQuiz')) || [...DEFAULT_QUIZ_ITEMS]; } catch(e) { quizItems = [...DEFAULT_QUIZ_ITEMS]; }
+        }
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex); currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function updateScore(points) {
+            score += points;
+            document.getElementById('score').innerText = score;
+            const scoreEl = document.getElementById('score').parentElement;
+            scoreEl.classList.add('scale-110', 'bg-yellow-400', 'text-gray-900');
+            setTimeout(() => scoreEl.classList.remove('scale-110', 'bg-yellow-400', 'text-gray-900'), 300);
+        }
+
+        function initGame() {
+            loadData();
+            score = 0; updateScore(0);
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+            startRound(1);
+        }
+
+        function startRound(round) {
+            currentRound = round;
+            document.getElementById('round1-container').classList.toggle('hidden', round !== 1);
+            document.getElementById('round1-container').classList.toggle('flex', round === 1);
+            document.getElementById('round2-container').classList.toggle('hidden', round !== 2);
+            document.getElementById('round2-container').classList.toggle('flex', round === 2);
+            document.getElementById('round3-container').classList.toggle('hidden', round !== 3);
+            document.getElementById('round3-container').classList.toggle('flex', round === 3);
+
+            if(round === 1) {
+                remainingR1 = shuffle([...itemsR1]);
+                renderCardsR1();
+                document.querySelectorAll('#round1-container .drop-zone').forEach(z => z.innerHTML = z.innerHTML.split('<div class="glass-card')[0]);
+            } else if (round === 2) {
+                remainingR2 = shuffle([...itemsR2]);
+                renderCardsR2();
+                document.querySelectorAll('#round2-container .drop-zone').forEach(z => z.innerHTML = z.innerHTML.split('<div class="glass-card')[0]);
+            } else if (round === 3) {
+                currentQuizList = shuffle([...quizItems]).slice(0, 10);
+                currentQuizIndex = 0;
+                document.getElementById('total-questions').innerText = currentQuizList.length;
+                if(currentQuizList.length > 0) renderQuizQuestion();
+                else showFinalWin();
+            }
+        }
+
+        // --- 5. RENDER CARDS & DRAG/DROP ---
+        function renderCardsR1() {
+            const pool = document.getElementById('card-pool-r1'); pool.innerHTML = '';
+            remainingR1.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = `glass-card w-full p-3 rounded-xl flex-shrink-0 text-center text-lg md:text-xl font-bold text-gray-800 tracking-wider shadow-md pop-in border-2 border-white`;
+                card.style.animationDelay = `${index * 0.05}s`;
+                card.dataset.id = item.id;
+                card.dataset.target = item.target;
+                card.innerHTML = item.text;
+                setupDraggable(card);
+                pool.appendChild(card);
+            });
+        }
+
+        function renderCardsR2() {
+            const pool = document.getElementById('card-pool-r2'); pool.innerHTML = '';
+            remainingR2.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = `glass-card p-3 rounded-xl m-1 flex-1 min-w-[140px] max-w-[200px] text-sm md:text-base font-semibold text-gray-700 flex items-center gap-2 pop-in`;
+                card.style.animationDelay = `${index * 0.05}s`;
+                card.dataset.id = item.id;
+                card.dataset.target = item.category; // using target for generic logic
+                const iconClass = item.icon || CAT_ICONS[item.category];
+                const iconColor = item.color || CAT_COLORS[item.category];
+                card.innerHTML = `<i class="fa-solid ${iconClass} ${iconColor} text-lg shrink-0"></i> <span>${item.text}</span>`;
+                setupDraggable(card);
+                pool.appendChild(card);
+            });
+        }
+
+        let dragInfo = { active: false, element: null, ghost: null, offsetX: 0, offsetY: 0, currentZone: null };
+
+        function setupDraggable(element) {
+            element.addEventListener('pointerdown', handlePointerDown);
+            element.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
+        }
+
+        function handlePointerDown(e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            playSound('pickup');
+            const card = e.currentTarget; const rect = card.getBoundingClientRect();
+            dragInfo = { active: true, element: card, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, currentZone: null };
+
+            const ghost = card.cloneNode(true);
+            ghost.classList.add('is-dragging');
+            ghost.style.width = `${rect.width}px`; ghost.style.height = `${rect.height}px`;
+            ghost.style.left = `${rect.left}px`; ghost.style.top = `${rect.top}px`;
+            document.body.appendChild(ghost); dragInfo.ghost = ghost;
+            card.classList.add('card-hidden');
+
+            document.addEventListener('pointermove', handlePointerMove);
+            document.addEventListener('pointerup', handlePointerUp);
+            document.addEventListener('pointercancel', handlePointerUp);
+        }
+
+        function handlePointerMove(e) {
+            if (!dragInfo.active) return; e.preventDefault();
+            dragInfo.ghost.style.left = `${e.clientX - dragInfo.offsetX}px`;
+            dragInfo.ghost.style.top = `${e.clientY - dragInfo.offsetY}px`;
+
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            let zone = target ? target.closest('.drop-zone') : null;
+            if (dragInfo.currentZone !== zone) {
+                if (dragInfo.currentZone) dragInfo.currentZone.classList.remove('drag-over');
+                if (zone) zone.classList.add('drag-over');
+                dragInfo.currentZone = zone;
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (!dragInfo.active) return;
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+            document.removeEventListener('pointercancel', handlePointerUp);
+
+            const { element: card, ghost, currentZone: zone } = dragInfo;
+            if (zone) zone.classList.remove('drag-over');
+
+            if (zone) {
+                const isCorrect = (currentRound === 1) 
+                    ? card.dataset.target === zone.dataset.target 
+                    : card.dataset.target === zone.dataset.category; // For R2 we stored category in target during render
+                
+                if (isCorrect) {
+                    playSound('correct'); updateScore(10);
+                    ghost.classList.add('anim-correct');
+                    setTimeout(() => ghost.remove(), 500);
+                    const itemId = parseInt(card.dataset.id);
+                    if(currentRound === 1) remainingR1 = remainingR1.filter(i => i.id !== itemId);
+                    else remainingR2 = remainingR2.filter(i => i.id !== itemId);
+                    card.remove();
+                    checkWinCondition();
+                } else {
+                    playSound('wrong'); updateScore(-2);
+                    ghost.classList.add('anim-wrong');
+                    setTimeout(() => {
+                        ghost.remove(); card.classList.remove('card-hidden');
+                        card.classList.add('anim-wrong');
+                        setTimeout(() => card.classList.remove('anim-wrong'), 500);
+                    }, 500);
+                }
+            } else {
+                ghost.remove(); card.classList.remove('card-hidden');
+            }
+            dragInfo.active = false;
+        }
+
+        function checkWinCondition() {
+            if (currentRound === 1 && remainingR1.length === 0) {
+                setTimeout(() => { playSound('win'); document.getElementById('modal-win-r1').classList.remove('hidden'); }, 500);
+            } else if (currentRound === 2 && remainingR2.length === 0) {
+                setTimeout(() => { playSound('win'); document.getElementById('modal-win-r2').classList.remove('hidden'); }, 500);
+            }
+        }
+
+        document.getElementById('btn-next-r2').addEventListener('click', () => { document.getElementById('modal-win-r1').classList.add('hidden'); startRound(2); });
+        document.getElementById('btn-next-r3').addEventListener('click', () => { document.getElementById('modal-win-r2').classList.add('hidden'); startRound(3); });
+
+        // --- 6. QUIZ LOGIC (R3) ---
+        function renderQuizQuestion() {
+            const q = currentQuizList[currentQuizIndex];
+            document.getElementById('current-question-idx').innerText = currentQuizIndex + 1;
+            document.getElementById('quiz-question-text').innerText = q.question;
+            const container = document.getElementById('quiz-options-container'); container.innerHTML = '';
+            
+            let validIndices = q.options.map((opt, i) => opt ? i : -1).filter(i => i !== -1);
+            shuffle([...validIndices]).forEach((origIdx, displayIdx) => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-option bg-white border-2 border-gray-200 text-gray-800 font-semibold py-4 px-6 rounded-2xl text-lg md:text-xl w-full text-left relative flex items-center shadow-sm';
+                btn.innerHTML = `<span class="shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mr-4 text-sm font-bold">${String.fromCharCode(65 + displayIdx)}</span> <span>${q.options[origIdx]}</span>`;
+                btn.onclick = () => handleQuizAnswer(btn, origIdx === q.answer);
+                container.appendChild(btn);
+            });
+        }
+
+        function handleQuizAnswer(btn, isCorrect) {
+            const buttons = document.querySelectorAll('.quiz-option');
+            buttons.forEach(b => b.disabled = true);
+            if (isCorrect) {
+                btn.classList.add('correct'); playSound('correct'); updateScore(10);
+                setTimeout(() => {
+                    currentQuizIndex++;
+                    if (currentQuizIndex < currentQuizList.length) {
+                        const ui = document.querySelector('#round3-container .glass-panel');
+                        ui.classList.remove('pop-in'); void ui.offsetWidth; ui.classList.add('pop-in');
+                        renderQuizQuestion();
+                    } else showFinalWin();
+                }, 1200);
+            } else {
+                btn.classList.add('wrong'); playSound('wrong'); updateScore(-2);
+                setTimeout(() => {
+                    btn.style.opacity = '0.5'; btn.classList.remove('wrong');
+                    buttons.forEach(b => { if (b.style.opacity !== '0.5') b.disabled = false; });
+                }, 800);
+            }
+        }
+
+        function showFinalWin() { setTimeout(() => { playSound('win'); document.getElementById('final-score').innerText = score; document.getElementById('modal-final-win').classList.remove('hidden'); }, 500); }
+        document.getElementById('btn-restart').addEventListener('click', initGame);
+
+        // --- 7. TEACHER DASHBOARD ---
+        document.getElementById('btn-teacher').addEventListener('click', () => { document.getElementById('modal-pin').classList.remove('hidden'); document.getElementById('pin-input').value = ''; document.getElementById('pin-input').focus(); });
+        document.querySelectorAll('.btn-close-modal').forEach(btn => btn.addEventListener('click', () => { 
+            document.getElementById('modal-pin').classList.add('hidden'); 
+            const isSaving = !document.getElementById('modal-teacher').classList.contains('hidden');
+            document.getElementById('modal-teacher').classList.add('hidden'); 
+            if(isSaving) { saveData(); initGame(); }
+        }));
+        
+        document.getElementById('btn-verify-pin').addEventListener('click', verifyPin);
+        document.getElementById('pin-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') verifyPin(); });
+
+        function verifyPin() {
+            if (document.getElementById('pin-input').value === pinCode) {
+                document.getElementById('modal-pin').classList.add('hidden');
+                document.getElementById('modal-teacher').classList.remove('hidden');
+                renderTeacherAll();
+            } else showAlert('Lỗi xác thực', 'Mã PIN không đúng.', 'error');
+        }
+
+        function renderTeacherAll() { renderTeacherR1(); renderTeacherR2(); renderTeacherR3(); }
+
+        // Tabs Logic
+        ['tab-round1', 'tab-round2', 'tab-round3'].forEach((id, idx) => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+                e.target.classList.add('tab-active');
+                [1,2,3].forEach(i => {
+                    document.getElementById(`content-round${i}`).classList.toggle('hidden', i !== idx+1);
+                    document.getElementById(`content-round${i}`).classList.toggle('flex', i === idx+1);
+                });
+            });
+        });
+
+        // R1 Teacher
+        function renderTeacherR1() {
+            const tbody = document.getElementById('teacher-r1-list'); tbody.innerHTML = '';
+            itemsR1.forEach((item, idx) => {
+                tbody.insertAdjacentHTML('beforeend', `<tr class="border-b hover:bg-pink-50 transition"><td class="p-2 text-center text-gray-500 font-bold">${idx + 1}</td><td class="p-2 font-bold text-lg">${item.text}</td><td class="p-2"><span class="px-2 py-1 bg-white border rounded text-sm font-bold text-pink-600">${TARGET_NAMES_R1[item.target]}</span></td><td class="p-2 text-center"><button class="text-red-500 hover:scale-110 transition" onclick="deleteItemR1(${item.id})"><i class="fa-solid fa-trash-can"></i></button></td></tr>`);
+            });
+        }
+        window.deleteItemR1 = (id) => { itemsR1 = itemsR1.filter(i => i.id !== id); renderTeacherR1(); };
+        document.getElementById('btn-add-r1').addEventListener('click', () => {
+            const t = document.getElementById('new-r1-text').value.trim(), tgt = document.getElementById('new-r1-target').value;
+            if(!t) return showAlert('Lỗi', 'Chưa nhập công thức', 'error');
+            itemsR1.push({ id: Date.now(), text: t, target: tgt }); renderTeacherR1(); document.getElementById('new-r1-text').value='';
+        });
+
+        // R2 Teacher
+        function renderTeacherR2() {
+            const tbody = document.getElementById('teacher-items-list'); tbody.innerHTML = '';
+            itemsR2.forEach((item, idx) => {
+                tbody.insertAdjacentHTML('beforeend', `<tr class="border-b hover:bg-blue-50 transition"><td class="p-2 text-center text-gray-500 font-bold">${idx + 1}</td><td class="p-2">${item.text}</td><td class="p-2"><span class="px-2 py-1 bg-white border rounded text-xs font-bold ${CAT_COLORS[item.category]}">${CAT_NAMES[item.category]}</span></td><td class="p-2 text-center"><button class="text-red-500 hover:scale-110 transition" onclick="deleteItemR2(${item.id})"><i class="fa-solid fa-trash-can"></i></button></td></tr>`);
+            });
+        }
+        window.deleteItemR2 = (id) => { itemsR2 = itemsR2.filter(i => i.id !== id); renderTeacherR2(); };
+        document.getElementById('btn-add-card').addEventListener('click', () => {
+            const t = document.getElementById('new-card-text').value.trim(), cat = document.getElementById('new-card-category').value;
+            if(!t) return showAlert('Lỗi', 'Chưa nhập nội dung thẻ', 'error');
+            itemsR2.push({ id: Date.now(), text: t, category: cat, icon: CAT_ICONS[cat], color: CAT_COLORS[cat] }); renderTeacherR2(); document.getElementById('new-card-text').value='';
+        });
+
+        // R3 Teacher
+        function renderTeacherR3() {
+            const tbody = document.getElementById('teacher-quiz-list'); tbody.innerHTML = '';
+            quizItems.forEach((item, idx) => {
+                tbody.insertAdjacentHTML('beforeend', `<tr class="border-b hover:bg-indigo-50 transition"><td class="p-2 text-center text-gray-500 font-bold">${idx + 1}</td><td class="p-2 text-sm"><strong class="text-indigo-800">${item.question}</strong><br><span class="text-xs text-gray-600 font-medium">ĐA Đúng: <span class="text-green-600">${item.options[0]}</span></span></td><td class="p-2 text-center"><button class="text-red-500 hover:scale-110 transition" onclick="deleteItemR3(${item.id})"><i class="fa-solid fa-trash-can"></i></button></td></tr>`);
+            });
+        }
+        window.deleteItemR3 = (id) => { quizItems = quizItems.filter(i => i.id !== id); renderTeacherR3(); };
+        document.getElementById('btn-add-quiz').addEventListener('click', () => {
+            const q = document.getElementById('new-quiz-q').value.trim(), a = document.getElementById('new-quiz-a').value.trim(), b = document.getElementById('new-quiz-b').value.trim(), c = document.getElementById('new-quiz-c').value.trim(), d = document.getElementById('new-quiz-d').value.trim();
+            if(!q || !a || !b) return showAlert('Lỗi', 'Nhập đủ câu hỏi và ít nhất 2 đáp án', 'error');
+            const opts = [a,b]; if(c) opts.push(c); if(d) opts.push(d);
+            quizItems.push({ id: Date.now(), question: q, options: opts, answer: 0 }); renderTeacherR3();
+            ['q','a','b','c','d'].forEach(id => document.getElementById('new-quiz-'+id).value='');
+        });
+
+        document.getElementById('btn-reset-data').addEventListener('click', () => {
+            if (confirm('Khôi phục dữ liệu gốc cho CẢ 3 VÒNG? Mọi chỉnh sửa sẽ bị xóa!')) {
+                itemsR1 = [...DEFAULT_ITEMS_R1]; itemsR2 = [...DEFAULT_ITEMS_R2]; quizItems = [...DEFAULT_QUIZ_ITEMS];
+                renderTeacherAll(); saveData(); showAlert('Thành công', 'Đã khôi phục dữ liệu gốc!', 'success');
+            }
+        });
+
+        function saveData() {
+            localStorage.setItem('aminoAcidGameR1', JSON.stringify(itemsR1));
+            localStorage.setItem('aminoAcidGameR2', JSON.stringify(itemsR2));
+            localStorage.setItem('aminoAcidQuiz', JSON.stringify(quizItems));
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
